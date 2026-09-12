@@ -1,4 +1,6 @@
-import json
+import json, shutil, re
+
+from typing import Dict, Tuple
 from typing import List
 from pathlib import Path
 
@@ -29,10 +31,10 @@ def partition_document(file_path: str):
     )
 
     # Gather all images
-    images = [element for element in elements if element.category == 'Image']
+    # images = [element for element in elements if element.category == 'Image']
 
     # Gather all table
-    tables = [element for element in elements if element.category == 'Table']
+    # tables = [element for element in elements if element.category == 'Table']
 
     print(f"✅ Extracted {len(elements)} elements")
     return elements
@@ -48,6 +50,17 @@ def create_chunks_by_title(element):
         new_after_n_chars=2400,  # Try to start a new chunk after 2400 characters
         combine_text_under_n_chars=500  # Merge tiny chunks under 500 chars with neighbors
     )
+
+    # TODO: TO DELETE (THIS IS FOR TESTING ONLY)
+    # Keep only the first max_chunks
+    chunks = chunks[:10]
+
+    # store sample chunks in file.
+    with open("monitor/sample_chunks.txt", "w", encoding="utf-8") as f:
+        for i, chunk in enumerate(chunks[:15]):
+            text = str(chunk)
+            f.write(f"--- Chunk {i + 1} ({len(text)} chars) ---\n")
+            f.write(text + "\n\n")
 
     print(f"✅ Created {len(chunks)} chunks")
     return chunks
@@ -104,20 +117,23 @@ def create_ai_enhanced_summary(text: str, tables: List[str], images: List[str]) 
             prompt_text += "TABLES:\n"
             for i, table in enumerate(tables):
                 prompt_text += f"Table {i+1}:\n{table}\n\n"
-        
-                prompt_text += """
-                YOUR TASK:
-                Generate a comprehensive, searchable description that covers:
 
-                1. Key facts, numbers, and data points from text and tables
-                2. Main topics and concepts discussed  
-                3. Questions this content could answer
-                4. Visual content analysis (charts, diagrams, patterns in images)
-                5. Alternative search terms users might use
+        if images:
+            prompt_text += f"IMAGES:\n{len(images)} image(s) attached below for visual analysis.\n\n"
 
-                Make it detailed and searchable - prioritize findability over brevity.
+        prompt_text += """
+        YOUR TASK:
+        Generate a comprehensive, searchable description of the tables and/or images that covers:
 
-                SEARCHABLE DESCRIPTION:"""
+        1. Key facts, numbers, and data points from text and tables
+        2. Main topics and concepts discussed  
+        3. Questions this content could answer
+        4. Visual content analysis (charts, diagrams, patterns in images)
+        5. Alternative search terms users might use
+
+        Make it detailed and searchable - prioritize findability over brevity.
+
+        Write each table description in \"Table Description (number)\" and each image description in \"Image Description (number)\". Do not write anything after."""
 
         # Build message content starting with text
         message_content = [{"type": "text", "text": prompt_text}]
@@ -132,6 +148,11 @@ def create_ai_enhanced_summary(text: str, tables: List[str], images: List[str]) 
         # Send to AI and get response
         message = HumanMessage(content=message_content)
         response = llm.invoke([message])
+
+        # Write the raw AI summary to a file.
+        with open("monitor/ai_enhanced_summaries.txt", "a", encoding="utf-8") as f:
+            f.write(response.content)
+            f.write("\n\n" + "=" * 80 + "\n\n")
         
         return response.content
         
@@ -145,6 +166,45 @@ def create_ai_enhanced_summary(text: str, tables: List[str], images: List[str]) 
             summary += f" [Contains {len(images)} image(s)]"
         return summary
 
+
+def extract_descriptions(response_text: str) -> Tuple[Dict[int, str], Dict[int, str]]:
+    """
+    Extract 'Table Description (N)' and 'Image Description (N)' sections
+    from an LLM response.
+
+    Returns:
+        (table_descriptions, image_descriptions) - each a dict mapping
+        1-based index -> description text.
+    """
+
+    # Matches a label like "Table Description (1)" or "Image Description (2)",
+    # capturing the label type, its number, and everything until the next
+    # label of either type or end of string.
+    pattern = re.compile(
+        r"(Table|Image) Description \((\d+)\)\s*\n(.*?)"
+        r"(?=(?:Table|Image) Description \(\d+\)|\Z)",
+        re.DOTALL
+    )
+
+    table_descriptions: Dict[int, str] = {}
+    image_descriptions: Dict[int, str] = {}
+
+    for label, number, body in pattern.findall(response_text):
+        cleaned = body.strip()
+        idx = int(number)
+        if label == "Table":
+            table_descriptions[idx] = cleaned
+        else:
+            image_descriptions[idx] = cleaned
+
+    # Write results to file before returning
+    with open("monitor/tables_and_images_descriptions.txt", "w", encoding="utf-8") as f:
+        for idx in sorted(table_descriptions):
+            f.write(f"Table Description ({idx})\n{table_descriptions[idx]}\n\n")
+        for idx in sorted(image_descriptions):
+            f.write(f"Image Description ({idx})\n{image_descriptions[idx]}\n\n")
+
+    return table_descriptions, image_descriptions
 
 def summarise_chunks(chunks):
     """Process all chunks with AI Summaries"""
@@ -168,26 +228,51 @@ def summarise_chunks(chunks):
         if content_data['tables'] or content_data['images']:
             print(f"     → Creating AI summary for mixed content...")
             try:
-                enhanced_content = create_ai_enhanced_summary(
+                extended_content = create_ai_enhanced_summary(
                     content_data['text'],
                     content_data['tables'], 
                     content_data['images']
                 )
                 print(f"     → AI summary created successfully")
-                print(f"     → Enhanced content preview: {enhanced_content[:200]}...")
+                print(f"     → Enhanced content preview: {extended_content[:200]}...")
             except Exception as e:
                 print(f"     ❌ AI summary failed: {e}")
-                enhanced_content = content_data['text']
+                extended_content = content_data['text']
         else:
             print(f"     → Using raw text (no tables/images)")
-            enhanced_content = content_data['text']
+            extended_content = content_data['text']
         
         # Create LangChain Document with rich metadata
+        # doc = Document(
+        #     page_content=enhanced_content,
+        #     metadata={
+        #         "original_content": json.dumps({
+        #             "raw_text": content_data['text'],
+        #             "tables_html": content_data['tables'],
+        #             "images_base64": content_data['images']
+        #         })
+        #     }
+        # )
+
+        # extract tables and images descriptions.
+        tables_dict, images_dict = extract_descriptions(extended_content)
+
+        # Append descriptions to content_data['text']
+        if tables_dict:
+            content_data['text'] += "\n\nTable(s) description(s):\n"
+            for idx in sorted(tables_dict):
+                content_data['text'] += f"{tables_dict[idx]}\n"
+
+        if images_dict:
+            content_data['text'] += "\n\nImage(s) description(s):\n"
+            for idx in sorted(images_dict):
+                content_data['text'] += f"{images_dict[idx]}\n"
+
+        # Create LangChain Document
         doc = Document(
-            page_content=enhanced_content,
+            page_content=content_data['text'],
             metadata={
                 "original_content": json.dumps({
-                    "raw_text": content_data['text'],
                     "tables_html": content_data['tables'],
                     "images_base64": content_data['images']
                 })
@@ -195,7 +280,15 @@ def summarise_chunks(chunks):
         )
         
         langchain_documents.append(doc)
-    
+
+    # Store sample langchain docs.
+    with open("monitor/sample_langchain_docs.txt", "w", encoding="utf-8") as f:
+        for i, doc in enumerate(langchain_documents[:15]):
+            f.write(f"--- Doc {i + 1} ---\n")
+            f.write(f"page_content ({len(doc.page_content)} chars):\n{doc.page_content}\n\n")
+            f.write(f"metadata:\n{doc.metadata}\n\n")
+            f.write("=" * 80 + "\n\n")
+
     print(f"✅ Processed {len(langchain_documents)} chunks")
     return langchain_documents
 
@@ -203,6 +296,10 @@ def summarise_chunks(chunks):
 def create_vector_store(documents, persist_directory="dbv1/chroma_db"):
     """Create and persist ChromaDB vector store"""
     print("🔮 Creating embeddings and storing in ChromaDB...")
+
+    # Delete db if exists.
+    if Path(persist_directory).exists():
+        shutil.rmtree(persist_directory)
         
     embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-m3",
     model_kwargs={"device": "cpu"},
@@ -229,8 +326,8 @@ if __name__ == '__main__':
     print("🚀 Starting RAG Ingestion Pipeline")
     print("=" * 50)
 
-    docs_dir = Path("./docs")
-    persist_directory = "db/chroma_db"
+    docs_dir = Path("./trimmed_docs")
+    persist_directory = "dbv1/chroma_db"
 
     # Find all PDF documents
     pdf_files = sorted(docs_dir.glob("*.pdf"))

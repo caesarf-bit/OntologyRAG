@@ -44,14 +44,19 @@ def generate_final_answer(chunks, query):
         
         for i, chunk in enumerate(chunks):
             prompt_text += f"--- Document {i+1} ---\n"
+
+            # Add raw text
+            raw_text = chunk.page_content
+            if raw_text:
+                prompt_text += f"TEXT:\n{raw_text}\n\n"
             
             if "original_content" in chunk.metadata:
                 original_data = json.loads(chunk.metadata["original_content"])
                 
                 # Add raw text
-                raw_text = original_data.get("raw_text", "")
-                if raw_text:
-                    prompt_text += f"TEXT:\n{raw_text}\n\n"
+                # raw_text = original_data.get("raw_text", "")
+                # if raw_text:
+                #     prompt_text += f"TEXT:\n{raw_text}\n\n"
                 
                 # Add tables as HTML
                 tables_html = original_data.get("tables_html", [])
@@ -63,9 +68,7 @@ def generate_final_answer(chunks, query):
             prompt_text += "\n"
         
         prompt_text += """
-    Use the context above to answer the question directly and naturally, as if you already know this information. Do not mention "the context," "the provided material," "the document," or similar phrases — just answer the question. If the documents don't contain sufficient information to answer the question, say "I don't have enough information to answer that question based on the provided documents."
-
-    ANSWER:"""
+    Use the context above to answer the question directly and naturally. Do not mention "the context," "the provided material," "the document," or similar phrases — just answer the question. If the documents don't contain sufficient information to answer the question, say "I don't have enough information to answer that question based on the provided documents."""
 
         # Build message content starting with text
         message_content = [{"type": "text", "text": prompt_text}]
@@ -84,6 +87,8 @@ def generate_final_answer(chunks, query):
         
         # Send to AI and get response
         message = HumanMessage(content=message_content)
+        with open("monitor/prompt.txt", "a", encoding="utf-8") as f:
+                    f.write(str(message))
         response = llm.invoke([message])
         
         return response.content
@@ -102,12 +107,12 @@ if __name__ == '__main__':
     )
 
     db = Chroma(
-        persist_directory="db/chroma_db",
+        persist_directory="dbv1/chroma_db",
         embedding_function=embedding_model,
         collection_metadata={"hnsw:space": "cosine"}
     )
 
-    query = "Who are OWASP's top-tier sponsors for the LLM Top 10 project?"
+    query = "How to prevent Data Poisoning Attack?"
     retriever = db.as_retriever(search_kwargs={"k": 3})
     chunks = retriever.invoke(query)
 
