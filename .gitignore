@@ -6,3 +6,6 @@ monitor/
 
 # Database
 db/
+
+#cache
+__pycache__/
