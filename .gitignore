@@ -1,0 +1,8 @@
+# Environment variables / secrets
+.env
+
+# Logs and generated output
+monitor/
+
+# Database
+db/
