@@ -1,4 +1,4 @@
-import json
+import json, constants
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def export_chunks_to_json(chunks, filename="chunks_export.json"):
+def export_chunks_to_json(chunks, filename):
     """Export processed chunks to clean JSON format"""
     export_data = []
     
@@ -100,15 +100,9 @@ def generate_final_answer(chunks, query):
 
 if __name__ == '__main__':
 
-    embedding_model = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-m3",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True}
-    )
-
     db = Chroma(
-        persist_directory="dbv1/chroma_db",
-        embedding_function=embedding_model,
+        persist_directory=constants.persist_directory,
+        embedding_function=constants.embedding_model,
         collection_metadata={"hnsw:space": "cosine"}
     )
 

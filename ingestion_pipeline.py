@@ -1,6 +1,6 @@
-import json, shutil, re
+import json, shutil, re, constants
 
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 from typing import List
 from pathlib import Path
 
@@ -29,12 +29,6 @@ def partition_document(file_path: str):
         extract_image_block_types=["Image"],  # Grab images found in the PDF
         extract_image_block_to_payload=True  # Store images as base64 data you can actually use
     )
-
-    # Gather all images
-    # images = [element for element in elements if element.category == 'Image']
-
-    # Gather all table
-    # tables = [element for element in elements if element.category == 'Table']
 
     print(f"✅ Extracted {len(elements)} elements")
     return elements
@@ -206,6 +200,21 @@ def extract_descriptions(response_text: str) -> Tuple[Dict[int, str], Dict[int, 
 
     return table_descriptions, image_descriptions
 
+
+def append_summaries_to_text(data: dict[str, Any], tables: Dict[int, str], images: Dict[int, str]):
+    if tables:
+        data['text'] += "\n\nTable(s) description(s):\n"
+        for idx in sorted(tables):
+            data['text'] += f"{tables[idx]}\n"
+    
+    if images:
+        data['text'] += "\n\nImage(s) description(s):\n"
+        for idx in sorted(images):
+            data['text'] += f"{images[idx]}\n"
+
+    return data
+
+
 def summarise_chunks(chunks):
     """Process all chunks with AI Summaries"""
     print("🧠 Processing chunks with AI Summaries...")
@@ -258,15 +267,7 @@ def summarise_chunks(chunks):
         tables_dict, images_dict = extract_descriptions(extended_content)
 
         # Append descriptions to content_data['text']
-        if tables_dict:
-            content_data['text'] += "\n\nTable(s) description(s):\n"
-            for idx in sorted(tables_dict):
-                content_data['text'] += f"{tables_dict[idx]}\n"
-
-        if images_dict:
-            content_data['text'] += "\n\nImage(s) description(s):\n"
-            for idx in sorted(images_dict):
-                content_data['text'] += f"{images_dict[idx]}\n"
+        content_data = append_summaries_to_text(content_data, tables_dict, images_dict)
 
         # Create LangChain Document
         doc = Document(
@@ -293,23 +294,19 @@ def summarise_chunks(chunks):
     return langchain_documents
 
 
-def create_vector_store(documents, persist_directory="dbv1/chroma_db"):
+def create_vector_store(documents, persist_directory):
     """Create and persist ChromaDB vector store"""
     print("🔮 Creating embeddings and storing in ChromaDB...")
 
     # Delete db if exists.
     if Path(persist_directory).exists():
         shutil.rmtree(persist_directory)
-        
-    embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-m3",
-    model_kwargs={"device": "cpu"},
-    encode_kwargs={"normalize_embeddings": True})
     
     # Create ChromaDB vector store
     print("--- Creating vector store ---")
     vectorstore = Chroma.from_documents(
         documents=documents,
-        embedding=embedding_model,
+        embedding=constants.embedding_model,
         persist_directory=persist_directory, 
         collection_metadata={"hnsw:space": "cosine"}
     )
@@ -326,19 +323,16 @@ if __name__ == '__main__':
     print("🚀 Starting RAG Ingestion Pipeline")
     print("=" * 50)
 
-    docs_dir = Path("./trimmed_docs")
-    persist_directory = "dbv1/chroma_db"
-
     # Find all PDF documents
-    pdf_files = sorted(docs_dir.glob("*.pdf"))
+    pdf_files = sorted(constants.docs_dir.glob("*.pdf"))
 
     if not pdf_files:
-        print(f"❌ No PDF files found in {docs_dir}")
+        print(f"❌ No PDF files found in {constants.docs_dir}")
         exit(1)
 
     print(f"📚 Found {len(pdf_files)} PDF document(s)")
 
-    all_summarised_chunks = []
+    all_chunks = []
 
     # Process every document
     for i, pdf_path in enumerate(pdf_files, start=1):
@@ -361,30 +355,30 @@ if __name__ == '__main__':
 
         # Step 3: AI Summarisation
         print("🔹 Step 3: Summarising chunks...")
-        summarised_chunks = summarise_chunks(chunks)
+        document_chunks = summarise_chunks(chunks)
 
         # Add to global collection
-        all_summarised_chunks.extend(summarised_chunks)
+        all_chunks.extend(document_chunks)
 
         print(
             f"✅ Finished {pdf_path.name}: "
             f"{len(chunks)} chunks → "
-            f"{len(summarised_chunks)} summarised chunks"
+            f"{len(document_chunks)} summarised chunks"
         )
 
     # Step 4: Create ONE vector store containing all documents
     print("\n" + "=" * 50)
     print("🔹 Step 4: Creating Chroma vector store...")
-    print(f"📦 Total chunks: {len(all_summarised_chunks)}")
+    print(f"📦 Total chunks: {len(all_chunks)}")
 
     db = create_vector_store(
-        all_summarised_chunks,
-        persist_directory=persist_directory
+        all_chunks,
+        persist_directory=constants.persist_directory
     )
 
     print("\n" + "=" * 50)
     print("🎉 RAG ingestion pipeline completed successfully!")
     print(f"📚 Documents processed: {len(pdf_files)}")
-    print(f"🧩 Total chunks indexed: {len(all_summarised_chunks)}")
-    print(f"💾 Vector store: {persist_directory}")
+    print(f"🧩 Total chunks indexed: {len(all_chunks)}")
+    print(f"💾 Vector store: {constants.persist_directory}")
     print("=" * 50)
