@@ -111,7 +111,7 @@ if __name__ == '__main__':
     chunks = retriever.invoke(query)
 
     # Export to JSON
-    export_chunks_to_json(chunks, "rag_results.json")
+    export_chunks_to_json(chunks, "monitor/rag_results.json")
 
     final_answer = generate_final_answer(chunks, query)
     print(final_answer)
