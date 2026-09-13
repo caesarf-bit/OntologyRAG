@@ -1,6 +1,5 @@
 import json, constants
 from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv

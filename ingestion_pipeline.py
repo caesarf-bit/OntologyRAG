@@ -11,7 +11,6 @@ from unstructured.chunking.title import chunk_by_title
 # LangChain components
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
@@ -192,7 +191,7 @@ def extract_descriptions(response_text: str) -> Tuple[Dict[int, str], Dict[int, 
             image_descriptions[idx] = cleaned
 
     # Write results to file before returning
-    with open("monitor/tables_and_images_descriptions.txt", "w", encoding="utf-8") as f:
+    with open("monitor/tables_and_images_descriptions.txt", "a", encoding="utf-8") as f:
         for idx in sorted(table_descriptions):
             f.write(f"Table Description ({idx})\n{table_descriptions[idx]}\n\n")
         for idx in sorted(image_descriptions):
@@ -322,6 +321,9 @@ if __name__ == '__main__':
 
     print("🚀 Starting RAG Ingestion Pipeline")
     print("=" * 50)
+
+    # Clear the file, so each run starts fresh
+    open("monitor/tables_and_images_descriptions.txt", "w").close()
 
     # Find all PDF documents
     pdf_files = sorted(constants.docs_dir.glob("*.pdf"))
