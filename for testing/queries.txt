@@ -22,6 +22,7 @@ Image-Based Queries (visual/diagram content only)
 → Reference: Appendix 1 diagram, p.39
 "Which companies are listed as Gold Sponsors on the sponsor logo page, as opposed to Silver Sponsors?"
 → Reference: Project Sponsors page (logo graphic), p.40
+Which vulnerability is tied to the vector database and the grounding/URL scraping components in that architecture?
 
 **************************
 
