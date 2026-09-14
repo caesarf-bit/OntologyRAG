@@ -1,4 +1,4 @@
-import json, shutil, re, constants
+import json, shutil, re, constants, glob
 
 from typing import Any, Dict, Tuple
 from typing import List
@@ -10,12 +10,9 @@ from unstructured.chunking.title import chunk_by_title
 
 # LangChain components
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_core.messages import HumanMessage
-from dotenv import load_dotenv
 
-load_dotenv()
 
 def partition_document(file_path: str):
     """Extract elements from PDF using unstructured"""
@@ -41,15 +38,15 @@ def create_chunks_by_title(element):
         element,  # The parsed PDF elements from previous step
         max_characters=3000,  # Hard limit - never exceed 3000 characters per chunk
         new_after_n_chars=2400,  # Try to start a new chunk after 2400 characters
-        combine_text_under_n_chars=500  # Merge tiny chunks under 500 chars with neighbors
+        combine_text_under_n_chars=800  # Merge tiny chunks under 500 chars with neighbors
     )
 
     # TODO: TO DELETE (THIS IS FOR TESTING ONLY)
     # Keep only the first max_chunks
-    chunks = chunks[:10]
+    # chunks = chunks[:10]
 
     # store sample chunks in file.
-    with open("monitor/sample_chunks.txt", "w", encoding="utf-8") as f:
+    with open("monitor/sample_chunks.txt", "a", encoding="utf-8") as f:
         for i, chunk in enumerate(chunks[:15]):
             text = str(chunk)
             f.write(f"--- Chunk {i + 1} ({len(text)} chars) ---\n")
@@ -94,39 +91,60 @@ def create_ai_enhanced_summary(text: str, tables: List[str], images: List[str]) 
     
     try:
         # Initialize LLM (needs vision model for images)
-        llm = ChatOpenAI(model="openai.gpt-5.4-nano", temperature=0)
+        llm = constants.chat_model
         
         # Build the text prompt
-        prompt_text = f"""You are creating a searchable description for document content retrieval.
+        prompt_text = f"""You are analyzing visual elements extracted from a PDF, for a RAG pipeline in the field of cybersecurity.
 
-        CONTENT TO ANALYZE:
-        TEXT CONTENT:
-        {text}
+        STEP 1: Decide if it's RELEVANT or IRRELEVANT.
+        IRRELEVANT = logos, watermarks, decorative backgrounds, icons, banners, links, headers and footers, 
+        stock photos, signatures, QR codes, blank/corrupted content, or repeated 
+        boilerplate.
+        RELEVANT = tables, charts, diagrams, schematics, or photos that convey 
+        actual information relevant to cybersecurity.
+
+        STEP 2: If RELEVANT, Generate a comprehensive, searchable description of the tables and/or images. Make it detailed and searchable - prioritize findability over brevity.
+
+        Write them under \"Table Description (number)\" and \"Image Description (number)\". Do not write anything after.
+
+        - Never write phrases like "no tables are present" or "the image appears to be blank" — if there's nothing valuable, simply produce no output for that item.
+        - If something belongs to IRRELEVANT, do not even create a description for it.
+        - If NONE of the tables or images have valuable content, output nothing at all — return an empty response.
+        - Do not write anything after the descriptions.
+        
 
         """
         
         # Add tables if present
         if tables:
-            prompt_text += "TABLES:\n"
+            prompt_text += "CONTENT TO ANALYZE:\n\nTABLES:\n"
             for i, table in enumerate(tables):
                 prompt_text += f"Table {i+1}:\n{table}\n\n"
 
-        if images:
-            prompt_text += f"IMAGES:\n{len(images)} image(s) attached below for visual analysis.\n\n"
+        # if images:
+        #     prompt_text += f"IMAGES:\n{len(images)} image(s) attached below.\n\n"
 
-        prompt_text += """
-        YOUR TASK:
-        Generate a comprehensive, searchable description of the tables and/or images that covers:
+        # prompt_text += """
+        # YOUR TASK:
+        # Generate a comprehensive, searchable description of the tables and/or images that covers:
 
-        1. Key facts, numbers, and data points from text and tables
-        2. Main topics and concepts discussed  
-        3. Questions this content could answer
-        4. Visual content analysis (charts, diagrams, patterns in images)
-        5. Alternative search terms users might use
+        # 1. Key facts, numbers, and data points from text and tables
+        # 2. Main topics and concepts discussed  
+        # 3. Questions this content could answer
+        # 4. Visual content analysis (charts, diagrams, patterns in images)
+        # 5. Alternative search terms users might use
 
-        Make it detailed and searchable - prioritize findability over brevity.
+        # Make it detailed and searchable - prioritize findability over brevity.
 
-        Write each table description in \"Table Description (number)\" and each image description in \"Image Description (number)\". Do not write anything after."""
+        # Write them under \"Table Description (number)\" and \"Image Description (number)\". Do not write anything after.
+        
+        # IMPORTANT — SKIPPING RULES:
+        # - If a table has no meaningful data (e.g. empty, decorative, or purely structural with no real values), DO NOT write a "Table Description" for it at all. Skip it completely — no header, no explanation, no mention that it was skipped.
+        # - If an image has no meaningful visual content (e.g. blank, a logo, a watermark, a decorative header/footer graphic), DO NOT write an "Image Description" for it at all. Skip it completely — no header, no explanation, no mention that it was skipped.
+        # - Never write phrases like "no tables are present" or "the image appears to be blank" — if there's nothing valuable, simply produce no output for that item.
+        # - If NONE of the tables or images have valuable content, output nothing at all — return an empty response.
+
+        # Do not write anything after the descriptions."""
 
         # Build message content starting with text
         message_content = [{"type": "text", "text": prompt_text}]
@@ -282,7 +300,7 @@ def summarise_chunks(chunks):
         langchain_documents.append(doc)
 
     # Store sample langchain docs.
-    with open("monitor/sample_langchain_docs.txt", "w", encoding="utf-8") as f:
+    with open("monitor/sample_langchain_docs.txt", "a", encoding="utf-8") as f:
         for i, doc in enumerate(langchain_documents[:15]):
             f.write(f"--- Doc {i + 1} ---\n")
             f.write(f"page_content ({len(doc.page_content)} chars):\n{doc.page_content}\n\n")
@@ -314,6 +332,10 @@ def create_vector_store(documents, persist_directory):
     print(f"✅ Vector store created and saved to {persist_directory}")
     return vectorstore
 
+def empty_monitor_files():
+    for filepath in glob.glob("monitor/*.txt"):
+        open(filepath, "w").close()
+
 
 if __name__ == '__main__':
 
@@ -322,8 +344,7 @@ if __name__ == '__main__':
     print("🚀 Starting RAG Ingestion Pipeline")
     print("=" * 50)
 
-    # Clear the file, so each run starts fresh
-    open("monitor/tables_and_images_descriptions.txt", "w").close()
+    empty_monitor_files()
 
     # Find all PDF documents
     pdf_files = sorted(constants.docs_dir.glob("*.pdf"))

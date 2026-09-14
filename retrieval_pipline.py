@@ -1,5 +1,4 @@
 import json, constants
-from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
@@ -33,7 +32,7 @@ def generate_final_answer(chunks, query):
     
     try:
         # Initialize LLM (needs vision model for images)
-        llm = ChatOpenAI(model="openai.gpt-5.4-nano", temperature=0)
+        llm = constants.chat_model
         
         # Build the text prompt
         prompt_text = f"""Based on the following documents, please answer this question: {query}
@@ -105,7 +104,7 @@ if __name__ == '__main__':
         collection_metadata={"hnsw:space": "cosine"}
     )
 
-    query = "How to prevent Data Poisoning Attack?"
+    query = "compare how ML02 (Data Poisoning Attack) and ML10 (Model Poisoning) in the ML Top 10 differ from LLM04 (Data and Model Poisoning) in the LLM Top 10 in terms of scope and mitigation strategy."
     retriever = db.as_retriever(search_kwargs={"k": 3})
     chunks = retriever.invoke(query)
 
