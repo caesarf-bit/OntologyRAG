@@ -1,55 +1,46 @@
+Text-Based Queries (2 per document)
+
 OWASP ML Security Top 10
+"What is the difference between adversarial training and robust model design as defenses against Input Manipulation Attacks?"
+→ Reference: ML01:2023 Input Manipulation Attack, "How to Prevent" section
+"What techniques can an attacker use to make a membership inference attack harder to defend against, and what mitigations exist?"
+→ Reference: ML04:2023 Membership Inference Attack, Description/How to Prevent
 
-Q: What is the difference between prompt injection and jailbreaking as described in these documents? (Actually this spans both — see below combined section.)
-Q: What are the three project leaders of the OWASP Machine Learning Security Top 10 project?
-A: Shain Singh, Sagar Bhure, and Ben Kereopa-Yorke.
-Q: What is "ROME" and how does it relate to LLM supply chain risk?
-A: ROME (also known as "lobotomisation") is a technique for direct model tampering that can be used to create vulnerable pre-trained models, alongside poisoned datasets.
-Q: According to ML02, what real-world CVE demonstrates training data disclosure enabling model extraction and inversion?
-A: CVE-2019-20634, the "Proof Pudding" attack.
+OWASP Top 10 for LLM Applications v2.0
+"What is the difference between prompt injection and jailbreaking according to OWASP?"
+→ Reference: LLM01:2025 Prompt Injection, Description section, p.3
+"Why is disclosure of the system prompt itself not considered the real security risk?"
+→ Reference: LLM07:2025 System Prompt Leakage, Description, p.26
 
+**************************
 
+Image-Based Queries (visual/diagram content only)
 
-OWASP Top 10 for LLM Applications 2025
+"According to the LLM application threat model diagram in Appendix 1, which OWASP LLM risks are mapped to the 'Fine-tuning Data' and 'Training Data' storage components?"
+→ Reference: Appendix 1: LLM Application Architecture and Threat Modeling diagram, p.39
+"Which trust boundaries (TB) are marked in the LLM application architecture diagram, and where does 'TB03' sit relative to the vector DB?"
+→ Reference: Appendix 1 diagram, p.39
+"Which companies are listed as Gold Sponsors on the sponsor logo page, as opposed to Silver Sponsors?"
+→ Reference: Project Sponsors page (logo graphic), p.40
 
-Q: Who are the two project leads named in the "Letter from the Project Leads," and what are their roles?
-A: Steve Wilson (Project Lead) and Ads Dawson (Technical Lead & Vulnerability Entries Lead).
-Q: What CVE is referenced as an example of code injection in the Prompt Injection section (LLM01)?
-A: CVE-2024-5184, affecting an LLM-powered email assistant.
-Q: What does "Denial of Wallet (DoW)" mean in the context of LLM10: Unbounded Consumption?
-A: An attack where an attacker initiates a high volume of operations to exploit the cost-per-use model of cloud-based AI services, creating unsustainable financial burdens on the provider.
-Q: What real-world incident is cited as an example of misinformation causing legal liability for a company (LLM09)?
-A: Air Canada's chatbot gave a customer incorrect information, and the airline was successfully sued as a result.
+**************************
 
+Table-Based Queries (Risk Factors tables)
 
+"What is the Exploitability and Detectability rating given for ML01 Input Manipulation Attack, and how do they justify that score?"
+→ Reference: ML01:2023 Risk Factors table, p.8
+"Compare the Technical difficulty rating between ML07 Transfer Learning Attack and ML10 Model Poisoning in their Risk Factors tables."
+→ Reference: ML07:2023 and ML10:2023 Risk Factors tables, pp.20, 26
+"What Threat Agents and Attack Vectors are listed for ML05 Model Theft in its risk table?"
+→ Reference: ML05:2023 Model Theft Risk Factors table, p.16
 
-Table-based queries
+**************************
 
-Q: In the ML01:2023 Input Manipulation Attack risk factor table, what is the Exploitability rating and what does it mean?
-A: Exploitability is rated 5 (Easy).
-Q: What is the Detectability rating for ML07:2023 Transfer Learning Attack, and why is it rated that way?
-A: Detectability is rated 1 (Difficult), because the compromised model's outputs may appear correct and consistent with expectations.
-Q: Compare the ML Application Specific and ML Operations Specific exploitability sub-scores for ML05:2023 Model Theft.
-A: ML Application Specific: 4, ML Operations Specific: 3.
-Q: What three release dates are listed in the Revision History table of the LLM Top 10 2025 document?
-A: 2023-08-01 (Version 1.0), 2023-10-16 (Version 1.1), and 2024-11-18 (Version 2025 Release).
+Cross-Document Queries (require synthesizing both files)
 
-
-
-Image / diagram-based queries
-
-Q: Which vulnerability is tied to the vector database and the grounding/URL scraping components in that architecture?
-A: Vector and Embedding Weaknesses (LLM08) — it's mapped to the semantic query and vector-matching path, which connects to the RAG private data stores and external grounding sources.
-Q: How many trust boundaries are drawn in the example architecture, and roughly what do they separate?
-A: Three trust boundaries are shown, separating zones like the client/untrusted internet from the application's server-side services, the LLM production services from the private data stores, and the external/training data sources from the rest of the pipeline.
-Q: Who are OWASP's top-tier sponsors for the LLM Top 10 project?
-A: The Gold-tier sponsors are HiddenLayer, Mend.io, Palo Alto Networks, and Snyk.
-
-
-
-Cross-document / synthesis queries
-
-Q: Both documents discuss "poisoning" — how does ML02/ML10 (2023) framing differ from LLM04 (2025) framing?
-A: The ML Top 10 (2023) splits it into Data Poisoning (ML02) and Model Poisoning (ML10) as separate entries; the LLM Top 10 (2025) merges these into a single "Data and Model Poisoning" (LLM04) entry, also covering backdoors and "sleeper agent" behavior.
-Q: Which document introduces "System Prompt Leakage" as a distinct risk category, and what number is it?
-A: The OWASP Top 10 for LLM Applications 2025 — LLM07:2025 System Prompt Leakage. This entry is new to the 2025 list and doesn't appear in the 2023 ML Security Top 10.
+"Both documents address data/training poisoning — compare how ML02 (Data Poisoning Attack) and ML10 (Model Poisoning) in the ML Top 10 differ from LLM04 (Data and Model Poisoning) in the LLM Top 10 in terms of scope and mitigation strategy."
+→ Reference: ML02:2023 & ML10:2023 (ML Security Top 10) + LLM04:2025 (LLM Top 10, p.16-18)
+"ML01 in the ML Security Top 10 covers Input Manipulation via adversarial examples; LLM01 in the LLM Top 10 covers Prompt Injection. Are these considered the same class of attack, and how do their mitigation strategies differ?"
+→ Reference: ML01:2023 (p.8) vs. LLM01:2025 (pp.3-6)
+"Model theft appears in both documents — how does ML05 (Model Theft) differ from LLM10 (Unbounded Consumption, e.g. Model Extraction via API / Functional Model Replication) in terms of attack method and prevention?"
+→ Reference: ML05:2023 Model Theft (p.16) vs. LLM10:2025 Unbounded Consumption (pp.35-38)
