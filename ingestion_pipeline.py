@@ -10,7 +10,8 @@ from unstructured.chunking.title import chunk_by_title
 
 # LangChain components
 from langchain_core.documents import Document
-from langchain_chroma import Chroma
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client.models import Distance
 from langchain_core.messages import HumanMessage
 
 
@@ -312,20 +313,21 @@ def summarise_chunks(chunks):
 
 
 def create_vector_store(documents, persist_directory):
-    """Create and persist ChromaDB vector store"""
-    print("🔮 Creating embeddings and storing in ChromaDB...")
+    """Create and persist vector store"""
+    print("🔮 Creating embeddings and storing in Qdrant...")
 
     # Delete db if exists.
     if Path(persist_directory).exists():
         shutil.rmtree(persist_directory)
     
-    # Create ChromaDB vector store
+    # Create vector store
     print("--- Creating vector store ---")
-    vectorstore = Chroma.from_documents(
-        documents=documents,
-        embedding=constants.embedding_model,
-        persist_directory=persist_directory, 
-        collection_metadata={"hnsw:space": "cosine"}
+    vectorstore = QdrantVectorStore.from_documents(
+    documents=documents,
+    embedding=constants.embedding_model,
+    collection_name=constants.db_name,
+    distance=Distance.COSINE,
+    path=constants.persist_directory
     )
     print("--- Finished creating vector store ---")
     
@@ -398,6 +400,8 @@ if __name__ == '__main__':
         all_chunks,
         persist_directory=constants.persist_directory
     )
+
+    db.client.close()
 
     print("\n" + "=" * 50)
     print("🎉 RAG ingestion pipeline completed successfully!")

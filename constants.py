@@ -8,8 +8,8 @@ load_dotenv()
 # Directories
 
 docs_dir = Path("./trimmed_docs")
-persist_directory = "db/dbv1/chroma_db"
-
+persist_directory = "db/dbv1/"
+db_name = "cybersecurity_chunks"
 
 
 # Models

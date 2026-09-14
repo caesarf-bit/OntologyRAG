@@ -1,5 +1,6 @@
 import json, constants
-from langchain_chroma import Chroma
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
@@ -98,13 +99,15 @@ def generate_final_answer(chunks, query):
 
 if __name__ == '__main__':
 
-    db = Chroma(
-        persist_directory=constants.persist_directory,
-        embedding_function=constants.embedding_model,
-        collection_metadata={"hnsw:space": "cosine"}
+    client = QdrantClient(path=constants.persist_directory)
+
+    db = QdrantVectorStore(
+        client=client,
+        collection_name=constants.db_name,
+        embedding=constants.embedding_model,
     )
 
-    query = "compare how ML02 (Data Poisoning Attack) and ML10 (Model Poisoning) in the ML Top 10 differ from LLM04 (Data and Model Poisoning) in the LLM Top 10 in terms of scope and mitigation strategy."
+    query = "Which vulnerability is tied to the vector database and the grounding/URL scraping components in that architecture?"
     retriever = db.as_retriever(search_kwargs={"k": 3})
     chunks = retriever.invoke(query)
 
@@ -113,3 +116,5 @@ if __name__ == '__main__':
 
     final_answer = generate_final_answer(chunks, query)
     print(final_answer)
+
+    client.close()
